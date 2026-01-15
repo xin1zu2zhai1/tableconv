@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table to KaTeX 変換ツール | TSV/CSV/Markdown対応</title>
+    <meta name="description" content="Excel(TSV)、CSV、Markdownの表データを、LaTeX(KaTeX)形式の表組みコードに自動変換する無料Webツール。note.com用の記法にも対応。">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Table to KaTeX 変換ツール">
+    <meta property="og:description" content="Excel(TSV)、CSV、Markdownの表をLaTeX(KaTeX)形式に一発変換。note.com対応モード搭載。">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: #f3f4f6;
+        }
+        .preview-area {
+            min-height: 100px;
+            overflow-x: auto;
+        }
+        .katex {
+            font-size: 1.1em;
+        }
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c7c7c7; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white p-4 shadow-md z-10">
+        <div class="container mx-auto flex items-center justify-between">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fa-solid fa-table"></i> Table to KaTeX Converter
+            </h1>
+            <div class="text-xs text-indigo-200 hidden sm:block">TSV / CSV / Markdown を LaTeX(KaTeX) に変換</div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto p-4 gap-4 flex flex-col lg:flex-row h-full overflow-hidden">
+        
+        <!-- Left Column: Input & Settings -->
+        <div class="flex flex-col gap-4 w-full lg:w-1/2 h-full overflow-y-auto pb-4 custom-scroll">
+            
+            <!-- Input Area -->
+            <div class="bg-white rounded-lg shadow p-4 flex flex-col gap-2 shrink-0">
+                <label for="tsvInput" class="font-bold text-gray-700 flex justify-between items-center">
+                    データ入力
+                    <span class="text-xs font-normal text-gray-400">TSV (Excel), CSV, Markdown対応</span>
+                </label>
+                <textarea id="tsvInput" class="w-full h-48 p-3 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm leading-relaxed" placeholder="[TSV形式]&#10;項目	値	備考&#10;Apple	100	赤&#10;&#10;[CSV形式]&#10;項目,値,備考&#10;Apple,100,赤&#10;&#10;[Markdown形式]&#10;| 項目 | 値 |&#10;|---|---|&#10;| Apple | 100 |"></textarea>
+                <div class="flex justify-between items-center">
+                    <span id="detectedFormat" class="text-xs font-bold text-indigo-500"></span>
+                    <button id="clearBtn" class="text-xs text-red-500 hover:text-red-700 underline cursor-pointer">クリア</button>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="bg-white rounded-lg shadow p-4 shrink-0">
+                <h2 class="font-bold text-gray-700 mb-3 text-sm">変換オプション</h2>
+                
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <!-- Alignment -->
+                    <div>
+                        <span class="block text-gray-500 mb-1 text-xs">配置</span>
+                        <div class="flex rounded-md shadow-sm" role="group">
+                            <button type="button" class="align-btn px-3 py-1.5 text-xs font-medium text-gray-900 bg-white border border-gray-200 rounded-l-lg hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-indigo-700 focus:text-indigo-700 active-align transition-colors" data-align="l">
+                                <i class="fa-solid fa-align-left"></i> 左
+                            </button>
+                            <button type="button" class="align-btn px-3 py-1.5 text-xs font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-indigo-700 focus:text-indigo-700 transition-colors" data-align="c">
+                                <i class="fa-solid fa-align-center"></i> 中
+                            </button>
+                            <button type="button" class="align-btn px-3 py-1.5 text-xs font-medium text-gray-900 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-indigo-700 focus:text-indigo-700 transition-colors" data-align="r">
+                                <i class="fa-solid fa-align-right"></i> 右
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Environment -->
+                    <div>
+                        <span class="block text-gray-500 mb-1 text-xs">環境</span>
+                        <select id="envSelect" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded focus:ring-indigo-500 focus:border-indigo-500 block w-full p-1.5 cursor-pointer">
+                            <option value="array">array (数式用)</option>
+                            <option value="tabular">tabular (標準LaTeX)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
+                    <label class="inline-flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded -ml-1">
+                        <input type="checkbox" id="headerLine" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300" checked>
+                        <span class="ml-2 text-gray-700">ヘッダー行の下に線</span>
+                    </label>
+
+                    <label class="inline-flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded -ml-1">
+                        <input type="checkbox" id="verticalLines" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300" checked>
+                        <span class="ml-2 text-gray-700">縦罫線 (|)</span>
+                    </label>
+
+                    <label class="inline-flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded -ml-1">
+                        <input type="checkbox" id="horizontalLines" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300" checked>
+                        <span class="ml-2 text-gray-700">横罫線 (\hline)</span>
+                    </label>
+
+                    <label class="inline-flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded -ml-1">
+                        <input type="checkbox" id="textMode" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300" checked>
+                        <span class="ml-2 text-gray-700">\text{} で囲む</span>
+                    </label>
+                    
+                     <label class="inline-flex items-center cursor-pointer col-span-2 hover:bg-gray-50 p-1 rounded -ml-1">
+                        <input type="checkbox" id="wrapMath" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300" checked>
+                        <span class="ml-2 text-gray-700">$$...$$ で囲む (Markdown用)</span>
+                    </label>
+                </div>
+
+                <!-- Note.com Special Option -->
+                <div class="mt-4 pt-3 border-t border-gray-200">
+                    <label class="inline-flex items-center cursor-pointer hover:bg-green-50 p-2 rounded -ml-2 w-full">
+                        <input type="checkbox" id="noteMode" class="form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500">
+                        <span class="ml-2 text-gray-700 font-bold">note.com用スタイル</span>
+                    </label>
+                    <p class="text-xs text-gray-500 ml-7 mt-0 leading-tight">
+                        note記事向けに最適化（\small, \arraystretch, \textsf, \textbf を適用し、改行コードを調整）
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Output & Preview -->
+        <div class="flex flex-col gap-4 w-full lg:w-1/2 h-full overflow-y-auto pb-4 custom-scroll">
+            
+            <!-- Preview -->
+            <div class="bg-white rounded-lg shadow p-4 flex-grow flex flex-col min-h-[300px] shrink-0">
+                <h2 class="font-bold text-gray-700 mb-2 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-eye text-indigo-500"></i> プレビュー
+                </h2>
+                <div id="katexPreview" class="preview-area w-full flex-grow border-2 border-dashed border-gray-200 rounded flex items-center justify-center bg-gray-50 p-4">
+                    <span class="text-gray-400 text-sm">ここにプレビューが表示されます</span>
+                </div>
+                <div id="errorMsg" class="text-red-500 text-xs mt-2 hidden bg-red-50 p-2 rounded border border-red-200"></div>
+            </div>
+
+            <!-- Output Code -->
+            <div class="bg-white rounded-lg shadow p-4 shrink-0">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="font-bold text-gray-700 text-sm">LaTeX コード</h2>
+                    <button id="copyBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-1.5 rounded transition flex items-center gap-2 shadow-sm">
+                        <i class="fa-regular fa-copy"></i> コピー
+                    </button>
+                </div>
+                <textarea id="outputCode" class="w-full h-32 p-3 bg-slate-800 text-green-400 rounded focus:outline-none font-mono text-xs overflow-auto leading-normal" readonly onclick="this.select()"></textarea>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="bg-gray-100 text-center py-2 text-xs text-gray-400">
+        Created for Note.com & GitHub Pages
+    </footer>
+
+    <!-- JS Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tsvInput = document.getElementById('tsvInput');
+            const outputCode = document.getElementById('outputCode');
+            const katexPreview = document.getElementById('katexPreview');
+            const errorMsg = document.getElementById('errorMsg');
+            const clearBtn = document.getElementById('clearBtn');
+            const copyBtn = document.getElementById('copyBtn');
+            const alignBtns = document.querySelectorAll('.align-btn');
+            const detectedFormatSpan = document.getElementById('detectedFormat');
+            
+            // Options
+            const envSelect = document.getElementById('envSelect');
+            const headerLine = document.getElementById('headerLine');
+            const verticalLines = document.getElementById('verticalLines');
+            const horizontalLines = document.getElementById('horizontalLines');
+            const textMode = document.getElementById('textMode');
+            const wrapMath = document.getElementById('wrapMath');
+            const noteMode = document.getElementById('noteMode');
+
+            let currentAlign = 'c'; // l, c, r
+
+            // Default Data (TSV)
+            tsvInput.value = "項目\t値\t備考\nApple\t100\t赤色\nBanana\t200\t黄色\nGrape\t300\t紫色";
+
+            // Alignment Button Logic
+            alignBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    alignBtns.forEach(b => {
+                        b.classList.remove('bg-indigo-100', 'text-indigo-700', 'z-10', 'ring-2', 'ring-indigo-700');
+                        b.classList.add('bg-white', 'text-gray-900');
+                    });
+                    btn.classList.remove('bg-white', 'text-gray-900');
+                    btn.classList.add('bg-indigo-100', 'text-indigo-700', 'z-10', 'ring-2', 'ring-indigo-700');
+                    currentAlign = btn.dataset.align;
+                    update();
+                });
+            });
+
+            // Activate Center by default
+            document.querySelector('[data-align="c"]').click();
+
+            // Escape LaTeX special characters
+            function escapeLatex(str) {
+                if (!str) return "";
+                return str
+                    .replace(/\\/g, '\\textbackslash')
+                    .replace(/&/g, '\\&')
+                    .replace(/%/g, '\\%')
+                    .replace(/\$/g, '\\$')
+                    .replace(/#/g, '\\#')
+                    .replace(/_/g, '\\_')
+                    .replace(/{/g, '\\{')
+                    .replace(/}/g, '\\}');
+            }
+
+            // Input Parser: TSV / CSV / Markdown
+            function parseData(raw) {
+                if (!raw || !raw.trim()) return { rows: [], format: '' };
+                
+                const lines = raw.trim().split(/\r?\n/);
+                if (lines.length === 0) return { rows: [], format: '' };
+
+                // 1. Detect Markdown Table
+                // (Looking for separator line like |---| or |:---| in the second line)
+                const isMarkdown = lines.length > 1 && 
+                                   /^\s*\|?[\s:-|]+\|?\s*$/.test(lines[1]) && 
+                                   lines[0].includes('|');
+
+                if (isMarkdown) {
+                    const rows = lines.filter((line) => {
+                         // Skip separator line
+                         return !/^\s*\|?[\s:-|]+\|?\s*$/.test(line);
+                    }).map(line => {
+                        // Remove leading/trailing pipes
+                        let content = line.trim();
+                        if (content.startsWith('|')) content = content.substring(1);
+                        if (content.endsWith('|')) content = content.substring(0, content.length - 1);
+                        return content.split('|').map(c => c.trim());
+                    });
+                    return { rows, format: 'Markdown' };
+                }
+
+                // 2. Detect TSV vs CSV
+                const firstLine = lines[0];
+                const tabCount = (firstLine.match(/\t/g) || []).length;
+                const commaCount = (firstLine.match(/,/g) || []).length;
+
+                if (commaCount > tabCount) {
+                    // CSV Parsing (Handling quotes)
+                    const rows = lines.map(line => {
+                        const row = [];
+                        let inQuote = false;
+                        let cell = '';
+                        for (let i = 0; i < line.length; i++) {
+                            const c = line[i];
+                            if (c === '"') {
+                                if (i + 1 < line.length && line[i+1] === '"') {
+                                     cell += '"';
+                                     i++; // Skip escaped quote
+                                } else {
+                                    inQuote = !inQuote;
+                                }
+                            } else if (c === ',' && !inQuote) {
+                                row.push(cell);
+                                cell = '';
+                            } else {
+                                cell += c;
+                            }
+                        }
+                        row.push(cell);
+                        return row;
+                    });
+                    return { rows, format: 'CSV' };
+                } else {
+                    // TSV (Default)
+                    return { rows: lines.map(line => line.split('\t')), format: 'TSV' };
+                }
+            }
+
+            // Note mode toggler
+            noteMode.addEventListener('change', () => {
+                if (noteMode.checked) {
+                    wrapMath.checked = true;
+                    verticalLines.checked = true;
+                    horizontalLines.checked = true;
+                }
+                update();
+            });
+
+            function generateLatex(isForPreview = false) {
+                const raw = tsvInput.value;
+                const { rows, format } = parseData(raw);
+                
+                // Show detected format
+                detectedFormatSpan.textContent = format ? `検出: ${format}` : "";
+
+                if (rows.length === 0) return "";
+
+                const colCount = Math.max(...rows.map(r => r.length));
+                
+                // Build Format String
+                const vLine = verticalLines.checked ? "|" : "";
+                let formatStr = vLine;
+                for (let i = 0; i < colCount; i++) {
+                    formatStr += currentAlign + vLine;
+                }
+
+                // Process Rows
+                let body = "";
+                const isNoteMode = noteMode.checked;
+                
+                let lineBreak = "\\\\"; 
+                if (isNoteMode && !isForPreview) {
+                    lineBreak = "\\\\\\\\"; 
+                }
+
+                rows.forEach((row, index) => {
+                    // Fill missing columns
+                    while(row.length < colCount) row.push("");
+
+                    const cells = row.map((cell, colIndex) => {
+                        let content = escapeLatex(cell);
+                        
+                        if (isNoteMode) {
+                            if (index === 0 || colIndex === 0) {
+                                content = `\\textsf{\\textbf{${content}}}`;
+                            } else {
+                                content = `\\textsf{${content}}`;
+                            }
+                        } else if (textMode.checked) {
+                            content = `\\text{${content}}`;
+                        }
+                        return content;
+                    });
+
+                    if (index === 0 && horizontalLines.checked) {
+                        body += "\\hline\n";
+                    }
+
+                    body += cells.join(" & ") + " " + lineBreak;
+                    
+                    if (horizontalLines.checked) {
+                        body += " \\hline";
+                        if (index < rows.length - 1) body += "\n";
+                    } else if (index === 0 && headerLine.checked) {
+                        body += " \\hline\n";
+                    } else {
+                         body += "\n";
+                    }
+                });
+
+                const env = envSelect.value;
+                let latex = `\\begin{${env}}{${formatStr}}\n${body}\\end{${env}}`;
+
+                if (isNoteMode) {
+                    latex = `\\small \\def\\arraystretch{1.5}\n${latex}`;
+                }
+
+                if (wrapMath.checked) {
+                    latex = `$$\n${latex}\n$$`;
+                }
+
+                return latex;
+            }
+
+            function update() {
+                const latexForCopy = generateLatex(false);
+                outputCode.value = latexForCopy;
+                
+                const latexForPreview = generateLatex(true);
+                
+                if (!latexForPreview) {
+                    katexPreview.innerHTML = '<span class="text-gray-400 text-sm">データがありません</span>';
+                    errorMsg.classList.add('hidden');
+                    return;
+                }
+
+                let renderContent = latexForPreview;
+                
+                if (wrapMath.checked) {
+                    renderContent = renderContent.replace(/^(\$\$)\s*/, '').replace(/\s*(\$\$)$/, '');
+                }
+
+                try {
+                    katex.render(renderContent, katexPreview, {
+                        throwOnError: true,
+                        displayMode: true,
+                        macros: {
+                            "\\arraystretch": "1.5"
+                        },
+                        trust: true 
+                    });
+                    katexPreview.classList.remove('items-center', 'justify-center'); 
+                    katexPreview.classList.add('flex', 'items-start', 'justify-center', 'pt-4');
+                    errorMsg.classList.add('hidden');
+                } catch (e) {
+                    errorMsg.textContent = "プレビューエラー: " + e.message;
+                    errorMsg.classList.remove('hidden');
+                }
+            }
+
+            // Event Listeners
+            tsvInput.addEventListener('input', update);
+            envSelect.addEventListener('change', update);
+            headerLine.addEventListener('change', update);
+            verticalLines.addEventListener('change', update);
+            horizontalLines.addEventListener('change', update);
+            textMode.addEventListener('change', update);
+            wrapMath.addEventListener('change', update);
+
+            clearBtn.addEventListener('click', () => {
+                tsvInput.value = "";
+                detectedFormatSpan.textContent = "";
+                update();
+                tsvInput.focus();
+            });
+
+            copyBtn.addEventListener('click', () => {
+                outputCode.select();
+                document.execCommand('copy');
+                
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> コピー完了';
+                copyBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    copyBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                }, 2000);
+            });
+
+            // Initial render
+            update();
+        });
+    </script>
+</body>
+</html>
